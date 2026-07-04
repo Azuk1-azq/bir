@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>あずき誕生日カウントダウン</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500&family=Roboto+Mono:wght@600;700&display=swap');
+
+  :root{
+    --night:      #0A0E22;
+    --night-2:    #131A3E;
+    --panel:      #1B2352;
+    --panel-2:    #141A40;
+    --wax:        #F5F0E8;
+    --flame-core: #FFF3C4;
+    --flame-gold: #FFC53D;
+    --flame-edge: #FF8A3D;
+    --azuki:      #A6402F;
+    --azuki-lt:   #D97757;
+    --sky-blue:   #6BCBFF;
+    --lilac:      #B694FF;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse 1000px 600px at 50% -5%, rgba(217,119,87,0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 1400px 900px at 50% 100%, var(--night-2) 0%, var(--night) 70%);
+    background-color:var(--night);
+    box-shadow: inset 0 0 220px rgba(0,0,0,.65);
+    color:var(--wax);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    position:relative;
+    padding:24px;
+  }
+
+  canvas#fx{
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    pointer-events:none;
+    z-index:5;
+  }
+
+  /* 実写の夜景ボケ(街の灯りがピンボケしている写真風) */
+  .bokeh-field{ position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+  .bokeh{
+    position:absolute;
+    border-radius:50%;
+    filter: blur(6px);
+    mix-blend-mode:screen;
+    animation: bokeh-drift linear infinite, bokeh-pulse ease-in-out infinite;
+  }
+  @keyframes bokeh-drift{
+    0%{ transform:translateY(0) translateX(0); }
+    100%{ transform:translateY(-60px) translateX(18px); }
+  }
+  @keyframes bokeh-pulse{
+    0%,100%{ opacity:var(--op-a); }
+    50%{ opacity:var(--op-b); }
+  }
+  /* かすかな粒子ノイズで質感を出す */
+  .grain{
+    position:fixed; inset:0; z-index:2; pointer-events:none;
+    opacity:.05; mix-blend-mode:overlay;
+    background-image:
+      radial-gradient(circle at 20% 30%, #fff 0.5px, transparent 0.5px),
+      radial-gradient(circle at 70% 65%, #fff 0.5px, transparent 0.5px),
+      radial-gradient(circle at 45% 85%, #fff 0.5px, transparent 0.5px);
+    background-size: 3px 3px, 4px 4px, 5px 5px;
+  }
+  /* 手前にうっすら浮かぶ大きなボケ玉(ピント外れの前景) */
+  .fg-bokeh{
+    position:fixed; border-radius:50%; z-index:2; pointer-events:none;
+    filter:blur(14px); mix-blend-mode:screen;
+  }
+
+  .stage{
+    position:relative; z-index:1;
+    display:flex; flex-direction:column;
+    align-items:center; text-align:center;
+    max-width:760px; width:100%;
+  }
+
+  .eyebrow{
+    letter-spacing:.35em; font-size:12px; color:#9BA3C7;
+    margin-bottom:16px; text-transform:uppercase;
+  }
+
+  /* --- ろうそく --- */
+  .candle-wrap{
+    position:relative; height:150px;
+    display:flex; align-items:flex-end; justify-content:center;
+    margin-bottom:4px;
+  }
+  .flame{
+    position:relative; width:22px; height:46px; margin-bottom:-2px; z-index:2;
+    filter: drop-shadow(0 0 14px rgba(255,197,61,.8)) drop-shadow(0 0 34px rgba(255,138,61,.4));
+    transform-origin:bottom center;
+    animation: flicker 2.2s ease-in-out infinite;
+    transition: filter 1s ease, transform 1s ease;
+  }
+  .flame .outer{
+    position:absolute; left:50%; bottom:0; transform:translateX(-50%);
+    width:22px; height:46px;
+    border-radius:50% 50% 50% 50% / 65% 65% 35% 35%;
+    background:linear-gradient(180deg, #FFF7D6 0%, var(--flame-gold) 38%, var(--flame-edge) 78%, #C24A1E 100%);
+  }
+  .flame .inner{
+    position:absolute; left:50%; bottom:1px; transform:translateX(-50%);
+    width:11px; height:22px;
+    border-radius:50% 50% 50% 50% / 65% 65% 35% 35%;
+    background:radial-gradient(circle at 50% 75%, var(--flame-core), var(--flame-gold) 75%);
+  }
+  .flame .core{
+    position:absolute; left:50%; bottom:1.5px; transform:translateX(-50%);
+    width:4.5px; height:10px;
+    border-radius:50%;
+    background:#8FB8FF;
+    opacity:.55;
+    filter:blur(.5px);
+  }
+  @keyframes flicker{
+    0%,100%{ transform: translateX(-50%) rotate(-2deg) scaleY(1) scaleX(1); }
+    22%{ transform: translateX(-50%) rotate(2.5deg) scaleY(1.06) scaleX(.96); }
+    45%{ transform: translateX(-50%) rotate(-1.5deg) scaleY(.94) scaleX(1.03); }
+    68%{ transform: translateX(-50%) rotate(3deg) scaleY(1.04) scaleX(.98); }
+    85%{ transform: translateX(-50%) rotate(-2.5deg) scaleY(.97) scaleX(1.02); }
+  }
+  .flame.urgent{ animation: flicker 1.1s ease-in-out infinite; transform:scale(1.15); }
+  .flame.out{ animation:none; opacity:0; transition: opacity .5s ease .1s; }
+
+  .wick{ position:absolute; bottom:64px; left:50%; transform:translateX(-50%); width:2px; height:10px; background:#3a2b1a; z-index:2; }
+
+  .stick{
+    width:34px; height:70px; border-radius:4px 4px 2px 2px;
+    background:linear-gradient(180deg, #FFF7E0 0%, #FFE9B8 45%, #FFDD9C 100%);
+    box-shadow: inset -7px 0 12px rgba(0,0,0,.1), inset 5px 0 9px rgba(255,255,255,.55);
+    position:relative;
+    overflow:hidden;
+  }
+  .stick::before{
+    /* 蝋だれ */
+    content:"";
+    position:absolute; top:-2px; left:11px;
+    width:6px; height:26px;
+    background:linear-gradient(180deg, #FFFDF6, #FFE9B8 70%, transparent);
+    border-radius:0 0 50% 50%;
+    opacity:.85;
+  }
+  .stick::after{
+    content:"";
+    position:absolute; top:-2px; left:21px;
+    width:4px; height:14px;
+    background:linear-gradient(180deg, #FFFDF6, #FFE9B8 70%, transparent);
+    border-radius:0 0 50% 50%;
+    opacity:.7;
+  }
+  .stripe{ position:absolute; left:0; right:0; height:7px; opacity:.85; mix-blend-mode:multiply; }
+  .stripe.s1{ top:16px; background:var(--azuki); }
+  .stripe.s2{ top:40px; background:var(--sky-blue); }
+
+  .holder{ width:70px; height:16px; background:linear-gradient(180deg, #C9A24B, #8F7128); border-radius:50% / 60%; margin-top:-2px; }
+
+  h1{
+    font-family:'Zen Maru Gothic', sans-serif; font-weight:900;
+    font-size:clamp(24px, 4.6vw, 36px); margin: 22px 0 6px; line-height:1.45;
+  }
+  h1 .name{
+    background:linear-gradient(90deg, var(--azuki-lt), var(--flame-gold));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .sub{ color:#B8BEDD; font-size:14px; margin-bottom:36px; }
+
+  /* --- フリップクロック(1桁ずつパラパラめくれる) --- */
+  .clock{ display:flex; gap:20px; justify-content:center; flex-wrap:wrap; }
+  .unit{ display:flex; flex-direction:column; align-items:center; }
+  .digit-pair{ display:flex; gap:4px; }
+
+  .flip-card{
+    position:relative; width:52px; height:70px; perspective:400px;
+  }
+  .flip-face{
+    position:absolute; inset:0;
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid rgba(255,197,61,.16);
+    border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 10px 26px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05);
+    font-family:'Roboto Mono', monospace; font-weight:700;
+    font-size:34px; color:var(--wax);
+    backface-visibility:hidden;
+  }
+  .flip-face::after{
+    content:""; position:absolute; left:4px; right:4px; top:50%;
+    height:1px; background:rgba(0,0,0,.35);
+  }
+  .flip-back{ transform:rotateX(180deg); }
+  .flip-inner{
+    position:absolute; inset:0; transform-style:preserve-3d;
+    transition: transform .5s cubic-bezier(.36,.07,.19,.97);
+  }
+  .flip-inner.flipped{ transform:rotateX(-180deg); }
+
+  .label{ margin-top:10px; font-size:11px; letter-spacing:.15em; color:#8E96C2; }
+
+  .footer-line{ margin-top:36px; font-size:13px; color:#7B83AC; }
+
+  /* --- 誕生日到達後 --- */
+  .celebrate{ display:none; }
+  .celebrate.show{ display:flex; flex-direction:column; align-items:center; animation: rise .8s ease; }
+  @keyframes rise{ from{ opacity:0; transform:translateY(16px);} to{ opacity:1; transform:translateY(0);} }
+  .celebrate h1{ font-size:clamp(28px, 5.8vw, 44px); }
+  .celebrate .sub{ font-size:15px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .flame, .stars span, .lantern{ animation:none !important; }
+    .flip-inner{ transition:none; }
+  }
+
+  @media (max-width:480px){
+    .flip-card{ width:40px; height:54px; }
+    .flip-face{ font-size:24px; }
+    .clock{ gap:12px; }
+    .digit-pair{ gap:3px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="fx"></canvas>
+<div class="bokeh-field" id="bokehField"></div>
+<div class="grain"></div>
+
+<div class="stage">
+  <div class="eyebrow">BIRTHDAY COUNTDOWN</div>
+
+  <div class="candle-wrap">
+    <div class="wick"></div>
+    <div class="flame" id="flame">
+      <div class="outer"></div>
+      <div class="inner"></div>
+      <div class="core"></div>
+    </div>
+    <div class="stick">
+      <div class="stripe s1"></div>
+      <div class="stripe s2"></div>
+    </div>
+  </div>
+  <div class="holder"></div>
+
+  <div id="beforeBox">
+    <h1>7月7日 0:00、<br><span class="name">あずき</span>の誕生日</h1>
+    <div class="sub">灯りがともるその瞬間まで</div>
+
+    <div class="clock" id="clock">
+      <div class="unit"><div class="digit-pair" id="pair-d"></div><div class="label">DAYS</div></div>
+      <div class="unit"><div class="digit-pair" id="pair-h"></div><div class="label">HOURS</div></div>
+      <div class="unit"><div class="digit-pair" id="pair-m"></div><div class="label">MIN</div></div>
+      <div class="unit"><div class="digit-pair" id="pair-s"></div><div class="label">SEC</div></div>
+    </div>
+
+    <div class="footer-line">7月7日 0:00(日本時間)に自動でお祝いします🕯️</div>
+  </div>
+
+  <div id="afterBox" class="celebrate">
+    <h1>🎉 あずき、<br>お誕生日おめでとう 🎉</h1>
+    <div class="sub">今日から、また新しい一年</div>
+  </div>
+</div>
+
+<script>
+  /* ---------- 背景演出:実写風の夜景ボケ ---------- */
+  const bokehColors = [
+    'rgba(255,197,61,0.55)',   // 暖色の街灯
+    'rgba(255,138,61,0.4)',
+    'rgba(166,64,47,0.35)',    // あずき色
+    'rgba(107,203,255,0.28)',  // 遠くの青白い光
+    'rgba(245,240,232,0.3)'
+  ];
+  const bokehWrap = document.getElementById('bokehField');
+  for(let i=0;i<26;i++){
+    const b = document.createElement('div');
+    b.className = 'bokeh';
+    const size = 14 + Math.random()*70;
+    b.style.width = size + 'px';
+    b.style.height = size + 'px';
+    b.style.left = Math.random()*100 + 'vw';
+    b.style.top = Math.random()*100 + 'vh';
+    b.style.background = bokehColors[Math.floor(Math.random()*bokehColors.length)];
+    b.style.setProperty('--op-a', (0.15 + Math.random()*0.25).toFixed(2));
+    b.style.setProperty('--op-b', (0.4 + Math.random()*0.4).toFixed(2));
+    b.style.animationDuration = (14 + Math.random()*16) + 's, ' + (3 + Math.random()*4) + 's';
+    b.style.animationDelay = (-Math.random()*20) + 's, ' + (-Math.random()*4) + 's';
+    bokehWrap.appendChild(b);
+  }
+  // 手前のピンボケ光(奥行き感)
+  for(let i=0;i<3;i++){
+    const fg = document.createElement('div');
+    fg.className = 'fg-bokeh';
+    const size = 90 + Math.random()*140;
+    fg.style.width = size + 'px';
+    fg.style.height = size + 'px';
+    fg.style.left = Math.random()*100 + 'vw';
+    fg.style.top = (60 + Math.random()*35) + 'vh';
+    fg.style.background = bokehColors[Math.floor(Math.random()*bokehColors.length)];
+    fg.style.opacity = (0.12 + Math.random()*0.12).toFixed(2);
+    document.body.appendChild(fg);
+  }
+
+  /* ---------- フリップクロック(1桁ずつパラパラめくれる) ---------- */
+  function createDigitCard(){
+    const card = document.createElement('div');
+    card.className = 'flip-card';
+    card.innerHTML =
+      '<div class="flip-face flip-front-static">0</div>' +
+      '<div class="flip-inner">' +
+        '<div class="flip-face flip-front">0</div>' +
+        '<div class="flip-face flip-back">0</div>' +
+      '</div>';
+    const front = card.querySelector('.flip-front-static');
+    const inner = card.querySelector('.flip-inner');
+    const oldF  = card.querySelector('.flip-front');
+    const newF  = card.querySelector('.flip-back');
+    let current = '0';
+
+    function set(value){
+      if(value === current){ return; }
+      oldF.textContent = current;
+      newF.textContent = value;
+      inner.classList.add('flipped');
+      const done = () => {
+        front.textContent = value;
+        inner.classList.remove('flipped');
+        inner.removeEventListener('transitionend', done);
+        current = value;
+      };
+      inner.addEventListener('transitionend', done);
+    }
+    return { el: card, set };
+  }
+
+  function createUnit(pairId){
+    const wrap = document.getElementById(pairId);
+    const d1 = createDigitCard();
+    const d2 = createDigitCard();
+    wrap.appendChild(d1.el);
+    wrap.appendChild(d2.el);
+    return function setValue(str){
+      d1.set(str[0]);
+      d2.set(str[1]);
+    };
+  }
+
+  const setD = createUnit('pair-d');
+  const setH = createUnit('pair-h');
+  const setM = createUnit('pair-m');
+  const setS = createUnit('pair-s');
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  /* ---------- 目標日時: 2026-07-07 00:00 JST ---------- */
+  const target = new Date('2026-07-07T00:00:00+09:00').getTime();
+  const flame = document.getElementById('flame');
+  const beforeBox = document.getElementById('beforeBox');
+  const afterBox = document.getElementById('afterBox');
+  let celebrated = false;
+
+  function tick(){
+    const now = Date.now();
+    const diff = target - now;
+
+    if(diff <= 0){
+      if(!celebrated){
+        celebrated = true;
+        flame.classList.add('out');
+        beforeBox.style.display = 'none';
+        afterBox.classList.add('show');
+        launchFireworksShow();
+      }
+      return;
+    }
+
+    const days  = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    const mins  = Math.floor((diff % 3600000) / 60000);
+    const secs  = Math.floor((diff % 60000) / 1000);
+
+    setD(pad(days)); setH(pad(hours)); setM(pad(mins)); setS(pad(secs));
+
+    if(diff < 60000){ flame.classList.add('urgent'); }
+  }
+  tick();
+  // setInterval は誤差が蓄積してズレるため、実際の秒境界に毎回同期させる
+  function scheduleNextTick(){
+    const delay = 1000 - (Date.now() % 1000);
+    setTimeout(()=>{
+      tick();
+      scheduleNextTick();
+    }, delay);
+  }
+  scheduleNextTick();
+
+  /* ---------- キャンバス花火(実写に近い光跡・打ち上げ・二段爆発) ---------- */
+  const canvas = document.getElementById('fx');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  function resize(){ W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+  resize(); addEventListener('resize', resize);
+
+  const palette = [
+    ['#FFF3C4','#FFC53D'], // 金
+    ['#FFD9B8','#FF8A3D'], // 橙
+    ['#FFD3C6','#A6402F'], // あずき色
+    ['#DFF3FF','#6BCBFF'], // 青白
+    ['#F1E6FF','#B694FF']  // 藤
+  ];
+
+  let particles = [];  // 爆発の火の粉
+  let rockets = [];    // 打ち上げ中の弾
+
+  function spawnBurst(x, y, hue){
+    const count = 70 + Math.floor(Math.random()*40);
+    const [core, edge] = hue;
+    const isRing = Math.random() < 0.35;
+    for(let i=0;i<count;i++){
+      const angle = (Math.PI*2) * (i/count) + Math.random()*0.15;
+      const speed = (isRing ? 3.4 : 1.6) + Math.random()* (isRing ? 1.2 : 4.2);
+      particles.push({
+        x, y,
+        vx: Math.cos(angle)*speed,
+        vy: Math.sin(angle)*speed,
+        life: 1,
+        decay: 0.006 + Math.random()*0.010,
+        core, edge,
+        size: 1.2 + Math.random()*1.8,
+        trail: [],
+        crackled: false
+      });
+    }
+    // 中心の閃光
+    particles.push({ x, y, vx:0, vy:0, life:1, decay:0.06, core:'#FFFFFF', edge:core, size:26, flash:true, trail:[] });
+  }
+
+  function launchRocket(targetX, targetY, hue){
+    rockets.push({
+      x: targetX + (Math.random()*40-20),
+      y: H + 10,
+      vx: (targetX - W/2) * 0.0006,
+      vy: -(9 + Math.random()*2.5),
+      targetY,
+      hue,
+      trail:[]
+    });
+  }
+
+  function animateParticles(){
+    const active = particles.length > 0 || rockets.length > 0;
+    ctx.globalCompositeOperation = 'source-over';
+    if(active){
+      // わずかに前フレームを残して光の尾を出す(完全クリアしない)
+      ctx.fillStyle = 'rgba(10,14,34,0.22)';
+      ctx.fillRect(0,0,W,H);
+    } else {
+      ctx.clearRect(0,0,W,H);
+    }
+    ctx.globalCompositeOperation = 'lighter';
+
+    // 打ち上げロケット
+    rockets.forEach(r=>{
+      r.trail.push({x:r.x, y:r.y});
+      if(r.trail.length > 6) r.trail.shift();
+      r.vy += 0.05;
+      r.x += r.vx;
+      r.y += r.vy;
+
+      r.trail.forEach((t,i)=>{
+        ctx.globalAlpha = (i/r.trail.length) * 0.5;
+        ctx.fillStyle = '#FFE9B8';
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 1.6, 0, Math.PI*2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#FFF7D6';
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 2, 0, Math.PI*2);
+      ctx.fill();
+    });
+    rockets = rockets.filter(r=>{
+      if(r.vy >= -0.5 || r.y <= r.targetY){
+        spawnBurst(r.x, r.y, r.hue);
+        return false;
+      }
+      return true;
+    });
+
+    // 爆発の粒子
+    particles.forEach(p=>{
+      if(p.flash){
+        p.life -= p.decay;
+        return;
+      }
+      p.trail.push({x:p.x, y:p.y});
+      if(p.trail.length > 4) p.trail.shift();
+      p.vy += 0.038;
+      p.vx *= 0.992;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= p.decay;
+
+      // ごく一部はきらめきながら二次的にはじける(クラックル)
+      if(!p.crackled && p.life < 0.4 && Math.random() < 0.01){
+        p.crackled = true;
+        for(let k=0;k<6;k++){
+          const a = Math.random()*Math.PI*2;
+          const s = 0.6 + Math.random()*1.4;
+          particles.push({
+            x:p.x, y:p.y,
+            vx:Math.cos(a)*s, vy:Math.sin(a)*s,
+            life:1, decay:0.03+Math.random()*0.03,
+            core:'#FFFFFF', edge:p.core,
+            size:0.9, trail:[]
+          });
+        }
+      }
+    });
+    particles = particles.filter(p=>p.life > 0);
+
+    particles.forEach(p=>{
+      if(p.flash){
+        ctx.globalAlpha = Math.max(p.life,0)*0.8;
+        const g = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size);
+        g.addColorStop(0, p.core);
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+        ctx.fill();
+        return;
+      }
+      p.trail.forEach((t,i)=>{
+        ctx.globalAlpha = Math.max(p.life,0) * (i/p.trail.length) * 0.5;
+        ctx.fillStyle = p.edge;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, p.size*0.6, 0, Math.PI*2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = Math.max(p.life,0);
+      const g = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size);
+      g.addColorStop(0, p.core);
+      g.addColorStop(1, p.edge);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    requestAnimationFrame(animateParticles);
+  }
+  animateParticles();
+
+  function launchFireworksShow(){
+    let launches = 0;
+    const maxLaunches = 10;
+    function nextLaunch(){
+      if(launches >= maxLaunches) return;
+      const x = W*0.18 + Math.random()*W*0.64;
+      const y = H*0.18 + Math.random()*H*0.32;
+      const hue = palette[Math.floor(Math.random()*palette.length)];
+      launchRocket(x, y, hue);
+      launches++;
+      setTimeout(nextLaunch, 420 + Math.random()*520);
+    }
+    nextLaunch();
+    // その後は控えめに継続演出
+    setInterval(()=>{
+      if(Math.random() < 0.55){
+        const x = W*0.15 + Math.random()*W*0.7;
+        const y = H*0.15 + Math.random()*H*0.35;
+        launchRocket(x, y, palette[Math.floor(Math.random()*palette.length)]);
+      }
+    }, 3400);
+  }
+</script>
+
+</body>
+</html>
